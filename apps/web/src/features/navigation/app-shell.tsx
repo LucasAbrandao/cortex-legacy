@@ -15,7 +15,8 @@ export const useCortex = (): CortexContextValue => { const context = useContext(
 
 const navItems = [
   { href: "/", icon: "home", label: "home" }, { href: "/f1", icon: "race", label: "raceExplorer" },
-  { href: "/telemetry", icon: "telemetry", label: "telemetry" }, { href: "/telemetry/import", icon: "import", label: "importTelemetry" }
+  { href: "/telemetry", icon: "telemetry", label: "telemetry" }, { href: "/telemetry/import", icon: "import", label: "importTelemetry" },
+  { href: "/telemetry/overlays", icon: "telemetry", label: "overlayStudio" }
 ] as const satisfies readonly { href: string; icon: IconName; label: keyof Copy }[];
 const clampWidth = (value: number): number => Math.min(320, Math.max(216, value));
 const isActiveRoute = (pathname: string, href: string): boolean => href === "/" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
@@ -25,6 +26,7 @@ function routeContext(pathname: string, t: Copy) {
   if (pathname.startsWith("/f1/2025")) return { title: "Spa 2025", crumb: `${t.raceExplorer} / Belgium`, project: t.raceExplorer };
   if (pathname === "/f1") return { title: t.raceExplorer, crumb: "Cortex", project: t.raceExplorer };
   if (pathname === "/telemetry/import") return { title: t.importTelemetry, crumb: `${t.telemetry} / ${t.workspace}`, project: t.telemetry };
+  if (pathname === "/telemetry/overlays") return { title: t.overlayStudio, crumb: t.telemetry, project: t.telemetry };
   if (pathname === "/telemetry/session") return { title: t.workspace, crumb: t.telemetry, project: t.telemetry };
   return { title: t.telemetry, crumb: "Cortex", project: t.telemetry };
 }

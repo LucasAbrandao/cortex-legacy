@@ -29,9 +29,10 @@ export function TelemetryScreen() {
       <h2>{pt ? "Do arquivo ao gráfico, no seu navegador." : "From file to chart, in your browser."}</h2>
       <p>{pt ? "Visualize uma amostra, mapeie tempo e canais numéricos e compare até quatro séries. Lacunas e valores ausentes continuam visíveis." : "Preview a sample, map time and numeric channels, and compare up to four series. Gaps and missing values remain visible."}</p>
       <div className="action-row"><Link className="button button-primary" href="/telemetry/import">{pt ? "Importar arquivo" : "Import file"}</Link>{session && <Link className="button button-secondary" href="/telemetry/session">{pt ? "Voltar à sessão" : "Return to session"}</Link>}</div>
-      <p className="telemetry-muted">{pt ? "CSV UTF-8 com vírgula, ponto e vírgula ou tabulação; JSON como lista de registros. RCZ não é suportado." : "UTF-8 CSV with comma, semicolon, or tab separators; JSON as an array of records. RCZ is not supported."}</p>
+      <p className="telemetry-muted">{pt ? "CSV UTF-8 com vírgula, ponto e vírgula ou tabulação; JSON como lista de registros." : "UTF-8 CSV with comma, semicolon, or tab separators; JSON as an array of records."}</p>
       <PrivacyNotice pt={pt} />
     </section>
+    <section className="telemetry-panel"><Link className="button button-secondary" href="/telemetry/overlays">{pt ? "Estúdio de overlays RCZ" : "RCZ overlay studio"}</Link></section>
   </div>;
 }
 

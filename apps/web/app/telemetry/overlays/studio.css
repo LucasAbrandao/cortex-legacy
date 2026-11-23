@@ -1,0 +1,79 @@
+.studio canvas {
+  display: block;
+  width: min(100%, 90vh);
+  margin-inline: auto;
+  height: auto;
+  background: repeating-conic-gradient(#222936 0 25%, #2d3542 0 50%) 0 0 / 24px
+    24px;
+  border-radius: var(--radius-control);
+}
+.studio fieldset,
+.studio-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin: 0.8rem 0;
+}
+.studio fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: 1rem;
+}
+.studio fieldset .studio-row {
+  width: 100%;
+  margin: 0;
+}
+.studio input,
+.studio select,
+.studio button {
+  max-width: 100%;
+  font: inherit;
+  accent-color: var(--color-cyan);
+}
+.studio select,
+.studio button,
+.studio input[type="number"] {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid #67768a;
+  border-radius: var(--radius-control);
+  padding: 0.45rem;
+}
+.studio button {
+  cursor: pointer;
+}
+.studio button:disabled {
+  opacity: 0.5;
+}
+.studio .studio-row > input[type="range"] {
+  flex: 1;
+  min-width: 100px;
+}
+
+.studio-file {
+  cursor: pointer;
+}
+.studio-file:focus-within {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 3px;
+}
+
+.studio .telemetry-panel {
+  grid-template-columns: minmax(0, 1fr);
+}
+.studio [role="status"] {
+  overflow-wrap: anywhere;
+}
+.studio-file {
+  justify-self: start;
+  max-width: 100%;
+}
+.studio fieldset {
+  min-inline-size: 0;
+}
+@media (max-width: 767px) {
+  .main-content:has(.studio) .top-bar {
+    padding-inline-start: 9.75rem;
+  }
+}

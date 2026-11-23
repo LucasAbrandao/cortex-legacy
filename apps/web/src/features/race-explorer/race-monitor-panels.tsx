@@ -1,23 +1,21 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReplayResponse, SessionManifestResponse } from "@cortex/contracts";
 import { orderByPosition } from "./race-explorer-model";
 import { telemetryColor } from "../../shared/telemetry-workspace";
 
 type Manifest = SessionManifestResponse["manifest"];
 export type TrackPresentation = "integrated" | "expanded";
+export const TrackControlsHost = createContext<HTMLElement | null>(null);
 
-export function TrackMonitor({ mode, onMode, locale, children, onSize }: { mode: TrackPresentation; onMode: (mode: TrackPresentation) => void; locale: string; children: React.ReactNode; onSize?: (height: number) => void }) {
+export function TrackMonitor({ mode, onMode, locale, children, onSize, toolbarHost }: { mode: TrackPresentation; onMode: (mode: TrackPresentation) => void; locale: string; children: React.ReactNode; onSize?: (height: number) => void; toolbarHost?: HTMLElement | null }) {
   const pt = locale === "pt-BR";
   const [size, setSize] = useState({ width: 100, height: 460 });
   const panel = useRef<HTMLElement>(null);
+  const [controlsHost, setControlsHost] = useState<HTMLDivElement | null>(null);
   useEffect(() => onSize?.(size.height), [size.height, onSize]);
   const resize = (width: number, height: number) => setSize({ width: Math.max(50, Math.min(100, width)), height: Math.max(280, Math.min(680, height)) });
-  return <section ref={panel} className={`race-track-panel track-${mode}`} aria-label={pt ? "Monitor da pista" : "Track monitor"} style={mode === "integrated" ? { width: `${size.width}%`, height: size.height } : undefined}>
-    <header className="track-monitor-header"><h2>{pt ? "SPA / VISTA DA PISTA" : "SPA / TRACK VIEW"}</h2><div className="track-presentation-actions">
-      <button className="button button-small button-secondary" type="button" aria-pressed={mode === "integrated"} onClick={() => onMode(mode === "expanded" ? "integrated" : "expanded")}>{mode === "expanded" ? pt ? "Painel compacto" : "Compact panel" : pt ? "Pista ampla" : "Wide track"}</button>
-    </div></header>
-    <div className="track-monitor-body">{children}</div>
-    {mode === "integrated" && <button type="button" className="track-size-handle" aria-label={pt ? "Redimensionar pista; use as setas" : "Resize track; use arrow keys"} title={pt ? "Arraste ou use as setas para redimensionar" : "Drag or use arrow keys to resize"} onKeyDown={(event) => {
+  const resizeControl = mode === "integrated" && <button type="button" className="track-size-handle" aria-label={pt ? "Redimensionar pista; use as setas" : "Resize track; use arrow keys"} title={pt ? "Arraste ou use as setas para redimensionar" : "Drag or use arrow keys to resize"} onKeyDown={(event) => {
       if (!event.key.startsWith("Arrow")) return;
       event.preventDefault(); event.stopPropagation();
       resize(size.width + (event.key === "ArrowRight" ? 5 : event.key === "ArrowLeft" ? -5 : 0), size.height + (event.key === "ArrowDown" ? 20 : event.key === "ArrowUp" ? -20 : 0));
@@ -28,8 +26,15 @@ export function TrackMonitor({ mode, onMode, locale, children, onSize }: { mode:
       const move = (next: PointerEvent) => resize(start.width + (next.clientX - start.x) / width * 100, start.height + next.clientY - start.y);
       const end = () => { element.removeEventListener("pointermove", move); element.removeEventListener("pointerup", end); element.removeEventListener("pointercancel", end); element.removeEventListener("lostpointercapture", end); };
       element.addEventListener("pointermove", move); element.addEventListener("pointerup", end); element.addEventListener("pointercancel", end); element.addEventListener("lostpointercapture", end);
-    }}>↘</button>}
-  </section>;
+    }}>↘</button>;
+  const toolbar = <header className="track-monitor-header"><h2>{pt ? "SPA / VISTA DA PISTA" : "SPA / TRACK VIEW"}</h2><div className="track-presentation-actions">
+      <button className="button button-small button-secondary" type="button" aria-pressed={mode === "integrated"} onClick={() => onMode(mode === "expanded" ? "integrated" : "expanded")}>{mode === "expanded" ? pt ? "Painel compacto" : "Compact panel" : pt ? "Pista ampla" : "Wide track"}</button>
+    </div><div ref={setControlsHost} className="track-camera-slot" />{resizeControl}</header>;
+  return <TrackControlsHost.Provider value={controlsHost}><section ref={panel} className={`race-track-panel track-${mode}`} aria-label={pt ? "Monitor da pista" : "Track monitor"} style={mode === "integrated" ? { width: `${size.width}%`, height: size.height } : undefined}>
+    {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbarHost === undefined ? toolbar : null}
+    <div className="track-monitor-body">{children}</div>
+
+  </section></TrackControlsHost.Provider>;
 }
 
 export function TimingTower({ manifest, rows, time, focus, monitored, onFocus, onMonitor, animate, locale, lap, adaptive = false }: {

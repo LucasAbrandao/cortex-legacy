@@ -1,7 +1,9 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { TrackControlsHost } from "./race-monitor-panels";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { TrackResponse } from "@cortex/contracts";
@@ -57,13 +59,14 @@ export function RaceTrack3D({ reference, markers, originalMarkers, focused, loca
     return () => { cancelAnimationFrame(frame); window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, []);
   const pt = locale === "pt-BR";
+  const controlsHost = useContext(TrackControlsHost);
   return <div ref={host} className="race-scene" data-camera-mode={cameraMode} data-active={active && visible} data-scene-source={illustration ? "illustration" : "telemetry"}>
     {webgl !== true ? fallback : active && <Canvas frameloop={visible ? "always" : "never"} onCreated={() => onReady?.()} role="img" aria-label={illustration ? pt ? "Apresentação ilustrativa de Spa" : "Illustrative Spa presentation" : pt ? "Simulação tridimensional de Spa com movimento estimado entre amostras" : "Three-dimensional Spa simulation with estimated movement between samples"} dpr={[1, 1.4]} camera={{ position: savedCamera.current ?? [0, 8.2, 8.8], fov: 40, near: .1, far: 80 }} gl={{ antialias: true, alpha: true, powerPreference: "default" }}>
       <ambientLight intensity={1.2} />
       <directionalLight position={[4, 8, 6]} intensity={2.4} color="#dcecff" />
       <TrackScene reference={reference} markers={estimated ? markers : originalMarkers ?? markers} focused={focused} cameraMode={cameraMode} savedCamera={savedCamera} progress={progress} illustration={illustration} demoPlaying={demoPlaying && visible} />
     </Canvas>}
-    {webgl === true && <div className="scene-hud">{!illustration && <button type="button" className="scene-data-mode" aria-pressed={estimated} onClick={() => setEstimated((value) => !value)}><i />{estimated ? pt ? "MOVIMENTO ESTIMADO" : "ESTIMATED MOVEMENT" : pt ? "POSIÇÕES ORIGINAIS" : "ORIGINAL POSITIONS"}</button>}<div className="scene-camera-actions"><button type="button" className="button button-secondary button-small" aria-pressed={cameraMode === "exploring"} onClick={() => setCameraMode(cameraMode === "exploring" ? "fixed" : "exploring")}>{cameraMode === "exploring" ? pt ? "Fixar câmera" : "Lock camera" : pt ? "Explorar pista" : "Explore track"}</button>{cameraMode !== "auto" && <button type="button" className="button button-secondary button-small" onClick={() => setCameraMode("auto")}>{pt ? "Restaurar vista" : "Reset view"}</button>}</div></div>}
+    {webgl === true && controlsHost && createPortal(<div className="scene-hud">{!illustration && <button type="button" className="scene-data-mode" aria-pressed={estimated} onClick={() => setEstimated((value) => !value)}><i />{estimated ? pt ? "MOVIMENTO ESTIMADO" : "ESTIMATED MOVEMENT" : pt ? "POSIÇÕES ORIGINAIS" : "ORIGINAL POSITIONS"}</button>}<div className="scene-camera-actions"><button type="button" className="button button-secondary button-small" aria-pressed={cameraMode === "exploring"} onClick={() => setCameraMode(cameraMode === "exploring" ? "fixed" : "exploring")}>{cameraMode === "exploring" ? pt ? "Fixar câmera" : "Lock camera" : pt ? "Explorar pista" : "Explore track"}</button>{cameraMode !== "auto" && <button type="button" className="button button-secondary button-small" onClick={() => setCameraMode("auto")}>{pt ? "Restaurar vista" : "Reset view"}</button>}</div></div>, controlsHost)}
   </div>;
 }
 

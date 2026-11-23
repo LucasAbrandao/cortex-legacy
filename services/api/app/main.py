@@ -31,6 +31,7 @@ from .models import (
     TrackRequest,
     TrackResponse,
 )
+from .rcz import router as rcz_router
 from .session_service import SessionService
 from .settings import Settings
 
@@ -45,6 +46,7 @@ def create_app(settings: Settings | None = None, adapter: FastF1Backend | None =
     sessions = SessionService(resolved_settings, resolved_adapter)
     jobs = JobManager(sessions)
     application = FastAPI(title="Cortex API", version="0.2.0")
+    application.include_router(rcz_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=list(resolved_settings.allowed_origins),
@@ -95,7 +97,7 @@ def create_app(settings: Settings | None = None, adapter: FastF1Backend | None =
             requestId=str(uuid4()),
             locales=["pt-BR", "en"],
             visibleYears=[2025],
-            formats=["CSV", "JSON"],
+            formats=["CSV", "JSON", "RCZ"],
             enabledSessions=[CapabilitySession(year=2025, event="Belgium", session="R", availability="enabled")],
             cache=CacheHealth(
                 fastf1Enabled=True,

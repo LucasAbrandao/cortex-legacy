@@ -8,7 +8,9 @@ frontend, FastAPI/FastF1 no backend e tipos gerados de Pydantic/OpenAPI.
 Consulte [docs/STATUS.md](docs/STATUS.md) para o estado vigente, a próxima
 entrega e as evidências. O Race Explorer é o módulo para a sessão real de
 Belgium/Spa 2025; o Telemetry Lab importa e analisa CSV/JSON reais localmente,
-com mapeamento confirmado e sem persistência. O [histórico](docs/history/STATUS_2026-09-09.md) preserva os
+com mapeamento confirmado e sem persistência. Em **Telemetry Lab → Estúdio de overlays**,
+abra um RCZ, selecione indicadores e período e baixe WebM transparente ou CSV.
+O estúdio requer a API local e um navegador com codificação VP8 via WebCodecs. O [histórico](docs/history/STATUS_2026-09-09.md) preserva os
 resultados das rodadas anteriores.
 
 ## Ambiente reproduzível

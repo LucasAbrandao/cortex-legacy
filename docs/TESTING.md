@@ -89,3 +89,22 @@ de aprovação de toda a rodada.
 Inspecionar rotas críticas em 1440 px, 1200 px, 1024 px e 390 px; conferir
 overflow, contraste, foco, alvos, cena e coluna da classificação, erro, vazio, loading e redução
 de movimento. Registrar resultados em `STATUS.md` sem inventar métricas.
+
+## Homologação privada do Estúdio de overlays
+
+Com a API e a web disponíveis, rode `node scripts/verify-rcz-overlays.mjs`
+seguido dos quatro caminhos RCZ, entre aspas. A variável opcional
+`CORTEX_WEB_URL` define a origem da web. O script usa Chrome instalado,
+a entrada de arquivos e os botões reais. Os downloads curtos ficam no
+diretório temporário do Playwright até o navegador fechar. O relatório
+mostra metadados e resultados agregados.
+
+Para cada sessão, o recorte começa oito segundos após a largada da primeira
+volta e dura três segundos. A ferramenta baixa o velocímetro sozinho e a
+composição com mapa, reabre os bytes de cada download e compara com a prévia
+nos quadros 0, 45 e 89. Os pixels de fundo devem ter alfa zero e preservar
+branco e cinza-escuro. A comparação de conteúdo usa erro absoluto médio de
+cor pré-multiplicada e alfa inferior a 12 níveis em 255, para acomodar a
+compressão VP8. O CSV precisa ser idêntico após suavizar o mapa. A passagem
+também verifica overflow nas quatro larguras, troca de idioma e teclado.
+O gate padrão usa dados sintéticos e independe de arquivos privados.

@@ -8,7 +8,7 @@ import { TrackMonitor, type TrackPresentation } from "./race-monitor-panels";
 import spa from "./circuits/spa.json";
 
 type Scene = Pick<ComponentProps<typeof RaceTrackComponent>, "reference" | "markers" | "originalMarkers" | "focused" | "fallback">;
-type StageContext = { setScene: (scene: Scene | null) => void; presentation: TrackPresentation; finishIntro: () => void };
+type StageContext = { setScene: (scene: Scene | null) => void; presentation: TrackPresentation; finishIntro: () => void; setToolbarHost: (host: HTMLDivElement | null) => void };
 const Context = createContext<StageContext | null>(null);
 export const useRaceStage = () => useContext(Context);
 
@@ -19,6 +19,7 @@ export function RaceStage({ children, locale, real }: { children: ReactNode; loc
   const [intro, setIntro] = useState(true);
   const [demoPlaying, setDemoPlaying] = useState(true);
   const [ready, setReady] = useState(false);
+  const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const finishIntro = useCallback(() => setIntro(false), []);
   const onReady = useCallback(() => setReady(true), []);
@@ -53,11 +54,11 @@ export function RaceStage({ children, locale, real }: { children: ReactNode; loc
     measure(); window.addEventListener("resize", measure);
     return () => { observer?.disconnect(); cancelAnimationFrame(frame); window.removeEventListener("resize", measure); };
   }, [real, presentation, scene !== null]);
-  const context = useMemo(() => ({ setScene, presentation, finishIntro }), [presentation, finishIntro]);
+  const context = useMemo(() => ({ setScene, presentation, finishIntro, setToolbarHost }), [presentation, finishIntro]);
   return <Context.Provider value={context}><div ref={root} className={`race-experience ${intro ? "is-introducing" : "is-revealed"}`} data-source={real ? "session" : "presentation"} data-presentation={presentation} data-intro-ready={ready} onPointerDownCapture={finishIntro} onFocusCapture={finishIntro}>
     <div className={`race-stage-shell ${presentation === "expanded" ? "stage-wide" : "stage-compact"}`}>
       {!real && !ready && <div className="stage-preview"><PresentationMap /></div>}
-      <TrackMonitor mode={presentation} onMode={setPresentation} locale={locale} onSize={onSize}>
+      <TrackMonitor mode={presentation} onMode={setPresentation} locale={locale} onSize={onSize} toolbarHost={real ? toolbarHost : undefined}>
         <RaceTrack3D reference={real ? scene?.reference ?? [] : []} markers={real ? scene?.markers ?? [] : []} originalMarkers={scene?.originalMarkers} focused={real ? scene?.focused ?? "" : ""} locale={locale} illustration={real ? undefined : spa.points} demoPlaying={demoPlaying} onReady={onReady} fallback={real ? scene?.fallback ?? <p className="scene-empty">{pt ? "Preparando pista real…" : "Preparing real track…"}</p> : <PresentationMap />} />
         {real && scene && !scene.reference.length && <div className="scene-empty">{scene.fallback}</div>}
       </TrackMonitor>

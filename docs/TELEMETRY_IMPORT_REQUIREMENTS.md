@@ -1,5 +1,8 @@
 # Importação real de telemetria — D-020
 
+O estúdio RCZ usa a rota própria `/telemetry/overlays` e o contrato de D-021.
+Os limites e controles a seguir aplicam-se à importação CSV/JSON.
+
 ## Jornada e formatos
 
 `/telemetry` apresenta o módulo; `/telemetry/import` seleciona/recebe arraste,

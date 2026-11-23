@@ -1,5 +1,21 @@
 # Decisões técnicas
 
+## D-021 — Estúdio de overlays RCZ
+
+Em 23/11/2026, o Telemetry Lab ganhou a rota `/telemetry/overlays`. O adaptador
+FastAPI interpreta em memória uma sessão RaceChrono v1 com um relógio GPS
+reconhecido. O frontend recebe amostras canônicas, mantém a sessão aberta
+na página e usa Canvas 2D para a prévia e para cada quadro exportado.
+O usuário autorizou o Mediabunny para codificação WebM com alfa. A importação
+de CSV/JSON continua local conforme D-020.
+
+A linha de referência usa por padrão a volta válida mais rápida com cobertura
+GPS contínua. A geometria é projetada em plano local e mantém a proporção dos
+eixos. A suavização desloca cada vértice interno em até um pixel na escala
+de saída. O marcador acompanha as posições medidas. O intervalo entre amostras
+interrompe o desenho quando excede 1,8 vezes a mediana de cadência ou dois
+segundos. Uma volta parcial pode ser reproduzida e não entra no melhor tempo.
+
 ## D-020 — importação real local de CSV/JSON
 
 **Aprovada em 2026-10-20.** O Telemetry Lab passa a analisar os valores do arquivo,

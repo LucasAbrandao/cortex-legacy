@@ -16,6 +16,10 @@ export const telemetryColor = (driver: string) => {
 };
 const sampleTime = sampleAxis;
 const format = (value: unknown, locale: string) => value === null || value === undefined ? "—" : typeof value === "number" ? new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(value) : String(value);
+export function channelLabel(channel: Channel, locale: string): string {
+  const labels: Record<string, string> = { speed: "Velocidade", throttle: "Acelerador", brake: "Freio", gear: "Marcha", rpm: "Rotação", drs: "DRS", distance: "Distância" };
+  return locale === "pt-BR" && Object.hasOwn(labels, channel.id) ? labels[channel.id]! : channel.label;
+}
 const availabilityLabel = (series: Series, pt: boolean) => {
   const labels = pt
     ? { available: "Disponível", partial: "Parcial", absent: "Ausente", unmapped: "Não mapeado", uncalibrated: "Não calibrado" }
@@ -30,6 +34,9 @@ type Props = {
   onInspect: (time: number) => void; locale: string; following: boolean;
   /** An imported file is fully available; its inspection cursor does not clip the plot. */
   staticData?: boolean;
+  /** Presentation offset only; cursor and source samples keep their original time. */
+  timeOrigin?: number;
+  inspectionControl?: boolean;
   entityLabel?: string;
   /** In comparison, each individual series stops at its own proven end. */
   durations?: Record<string, number | null>;
@@ -39,6 +46,12 @@ type Props = {
 export function TelemetryWorkspace(props: Props) {
   const { channels, visible, onVisible, locale } = props;
   const pt = locale === "pt-BR";
+  const [preview, setPreview] = useState<number | null>(null);
+  // A stale hover must not survive a changing window, axis or source selection.
+  const previewKey = `${props.axis}:${props.series.map((item) => `${item.driver}:${item.lap}`).join("|")}`;
+  const [previewScope, setPreviewScope] = useState("");
+  const previewCursor = previewScope === previewKey && preview !== null && preview >= props.range.start && preview <= props.range.end ? preview : null;
+  const onPreview = (value: number | null) => { setPreview(value); setPreviewScope(previewKey); };
   const stack = useRef<HTMLDivElement>(null);
   useLayoutMotion(stack, visible.join("|"));
   return <div className="telemetry-workspace">
@@ -48,12 +61,13 @@ export function TelemetryWorkspace(props: Props) {
     <details className="channel-menu">
       <summary>{pt ? "Canais de telemetria" : "Telemetry channels"}<span>{visible.length} / {channels.length}</span></summary>
       <fieldset className="channel-options"><legend className="sr-only">{pt ? "Canais visíveis" : "Visible channels"}</legend>
-        {channels.map((channel) => <label key={channel.id}><input type="checkbox" checked={visible.includes(channel.id)} onChange={() => onVisible(visible.includes(channel.id) ? visible.filter((id) => id !== channel.id) : [...visible, channel.id])} />{channel.label}{channel.unit ? ` (${channel.unit})` : ""}</label>)}
+        {channels.map((channel) => <label key={channel.id}><input type="checkbox" checked={visible.includes(channel.id)} onChange={() => onVisible(visible.includes(channel.id) ? visible.filter((id) => id !== channel.id) : [...visible, channel.id])} />{channelLabel(channel, locale)}{channel.unit ? ` (${channel.unit})` : ""}</label>)}
       </fieldset>
     </details>
+    {props.inspectionControl && <label className="inspection-cursor">{pt ? "Inspecionar instante" : "Inspect instant"}<input type="range" aria-label={pt ? "Cursor de inspeção" : "Inspection cursor"} min={props.range.start} max={props.range.end} step=".01" value={props.cursor ?? props.range.end} onChange={(event) => { onPreview(null); props.onInspect(Number(event.target.value)); }} /></label>}
     <div ref={stack} className="telemetry-stack">
       {!visible.length && <p className="inline-notice">{pt ? "Selecione um canal para analisar." : "Select a channel to inspect."}</p>}
-      {channels.filter((channel) => visible.includes(channel.id)).map((channel) => <ChannelChart key={channel.id} {...props} channel={channel} />)}
+      {channels.filter((channel) => visible.includes(channel.id)).map((channel) => <ChannelChart key={channel.id} {...props} channel={channel} previewCursor={previewCursor} onPreview={onPreview} />)}
     </div>
     <TelemetryTable {...props} />
   </div>;
@@ -73,10 +87,11 @@ function currentSamples(props: Props) {
   });
 }
 
-function ChannelChart(props: Props & { channel: Channel }) {
+function ChannelChart(props: Props & { channel: Channel; previewCursor: number | null; onPreview: (value: number | null) => void }) {
   const { channel, series, axis, cursor, range, locale } = props;
   const pt = locale === "pt-BR";
   const svg = useRef<SVGSVGElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const [svgWidth, setSvgWidth] = useState(800);
   useEffect(() => {
     if (!svg.current || typeof ResizeObserver === "undefined") return;
@@ -85,14 +100,14 @@ function ChannelChart(props: Props & { channel: Channel }) {
   }, []);
   const right = svgWidth - 24;
   const width = Math.max(.001, range.end - range.start);
-  const clip = axis === "globalTime" && !props.staticData ? cursor : null;
+  const clip = axis === "globalTime" && !props.staticData && props.following ? cursor : null;
   const plots = useMemo(() => series.map((item) => ({ item, segments: channelSegments(item.samples, channel, axis, { start: range.start, end: range.end }, clip) })), [series, channel, axis, range.start, range.end, clip]);
   const bounds = useMemo(() => {
     let min = Infinity; let max = -Infinity; let count = 0;
     for (const plot of plots) for (const segment of plot.segments) for (const point of segment) { min = Math.min(min, point.y); max = Math.max(max, point.y); count++; }
     return { min: count ? min : 0, max: count ? max : 1, count };
   }, [plots]);
-  const fixed = channel.id === "throttle" ? [0, 100] : channel.id === "brake" ? [0, 1] : channel.id === "gear" ? [0, 8] : channel.id === "speed" ? [0, Math.max(400, bounds.max)] : null;
+  const fixed = channel.id === "throttle" ? [0, 100] : channel.id === "brake" ? [0, 1] : channel.id === "gear" ? [0, 8] : channel.id === "speed" ? [0, Math.max(400, bounds.max)] : channel.id === "rpm" ? [0, Math.max(20000, bounds.max)] : channel.id === "drs" ? [0, Math.max(14, bounds.max)] : null;
   const min = fixed?.[0] ?? bounds.min;
   const max = fixed?.[1] ?? bounds.max;
   const chartX = (x: number) => 52 + (x - range.start) / width * (right - 52);
@@ -109,19 +124,34 @@ function ChannelChart(props: Props & { channel: Channel }) {
     }
     return { item, d: paths.join(""), points };
   }), [plots, range.start, range.end, svgWidth, min, max, channel.suggestedView]);
-  const inspect = (event: React.PointerEvent<SVGSVGElement>) => {
+  const pointerTime = (event: React.PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     // The SVG preserves no aspect ratio: plot coordinates and pointer coordinates agree.
     const value = range.start + Math.max(0, Math.min(1, ((event.clientX - rect.left) / rect.width * svgWidth - 52) / (right - 52))) * width;
-    props.onInspect(value);
+    return value;
   };
-  const samples = currentSamples(props);
+  const samples = currentSamples({ ...props, cursor: props.previewCursor ?? cursor });
+  const label = channelLabel(channel, locale);
+  const axisLabel = (value: number) => props.timeOrigin === undefined ? `${format(value, locale)} ${axis === "distance" ? "m" : "s"}` : value === props.timeOrigin ? props.following ? pt ? "agora" : "now" : pt ? "fim do trecho" : "window end" : `${format(value - props.timeOrigin, locale)} s`;
   return <section className="monitor-chart" data-channel={channel.id} data-motion-id={channel.id}>
-    <header><h3>{channel.label} <small>{channel.unit ?? (channel.id.startsWith("import:") ? pt ? "unidade desconhecida" : "unknown unit" : "")}</small></h3><span className={`channel-origin is-${channel.origin}`}>{channel.origin === "derived" ? pt ? "Derivado" : "Derived" : pt ? "Original" : "Original"}</span></header>
+    <header><h3>{label} <small>{channel.unit ?? (channel.id.startsWith("import:") ? pt ? "unidade desconhecida" : "unknown unit" : "")}</small></h3><span className={`channel-origin is-${channel.origin}`}>{channel.origin === "derived" ? pt ? "Derivado" : "Derived" : pt ? "Original" : "Original"}</span></header>
     <div className="live-readouts">{samples.map((row) => <span key={row.key}><i style={{ background: telemetryColor(row.driver) }} />{row.driver}{(axis !== "globalTime" || props.staticData) && row.lap !== null ? ` · ${row.lap}` : ""}<strong>{format(row.sample?.values[channel.id], locale)}</strong></span>)}{!samples.length && <span>{pt ? "Nenhuma série selecionada" : "No selected series"}</span>}</div>
     {series.map((item) => { const valid = item.samples.filter((sample) => sampleTime(sample, axis) !== null && sample.values[channel.id] !== null && sample.values[channel.id] !== undefined).length; return valid < item.samples.length ? <p className="inline-notice" key={`${item.driver}:${item.lap}`}>{item.driver}: {valid}/{item.samples.length} {pt ? "amostras válidas neste canal; lacunas preservadas." : "valid samples in this channel; gaps preserved."}</p> : null; })}
-    <svg ref={svg} className="monitor-chart-svg" viewBox={`0 0 ${svgWidth} 190`} preserveAspectRatio="none" role="img" tabIndex={0} aria-label={`${channel.label}: ${pt ? "telemetria sincronizada; setas para inspecionar" : "synchronized telemetry; arrow keys to inspect"}`} onPointerDown={inspect} onPointerMove={(event) => { if (event.buttons === 1) inspect(event); }} onKeyDown={(event) => {
-      if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); event.stopPropagation(); props.onInspect(Math.max(range.start, Math.min(range.end, (cursor ?? range.end) + (event.key === "ArrowLeft" ? -1 : 1)))); }
+    <p className="chart-preview-label">{props.previewCursor !== null ? `${pt ? "Prévia" : "Preview"} · ${axisLabel(props.previewCursor)} · ${pt ? "clique para inspecionar" : "click to inspect"}` : props.following ? pt ? "Valores no instante do replay" : "Values at replay time" : pt ? "Valores no cursor de inspeção" : "Values at inspection cursor"}</p>
+    <svg ref={svg} className="monitor-chart-svg" viewBox={`0 0 ${svgWidth} 190`} preserveAspectRatio="none" role="img" tabIndex={0} aria-label={`${label}: ${pt ? "telemetria sincronizada; setas para inspecionar" : "synchronized telemetry; arrow keys to inspect"}`} onPointerDown={(event) => {
+      if (event.button !== 0) return;
+      if (event.pointerType === "touch") { touchStart.current = { x: event.clientX, y: event.clientY }; return; }
+      props.onPreview(null); props.onInspect(pointerTime(event));
+      if (event.pointerType === "mouse") event.currentTarget.setPointerCapture?.(event.pointerId);
+    }} onPointerCancel={() => { touchStart.current = null; }} onPointerUp={(event) => {
+      const start = touchStart.current; touchStart.current = null;
+      if (event.pointerType === "touch" && start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 10) { props.onPreview(null); props.onInspect(pointerTime(event)); }
+    }} onPointerLeave={() => props.onPreview(null)} onPointerMove={(event) => {
+      if (event.pointerType === "touch") return;
+      if (event.buttons === 1) { props.onPreview(null); props.onInspect(pointerTime(event)); }
+      else props.onPreview(pointerTime(event));
+    }} onKeyDown={(event) => {
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); event.stopPropagation(); props.onPreview(null); props.onInspect(Math.max(range.start, Math.min(range.end, (cursor ?? range.end) + (event.key === "ArrowLeft" ? -1 : 1)))); }
     }}>
       {[0, .5, 1].map((fraction) => <g key={fraction}><line x1="52" x2={right} y1={152 - fraction * 130} y2={152 - fraction * 130} className="monitor-grid-line" /><text x="45" y={156 - fraction * 130} textAnchor="end" className="chart-tick">{format(min + fraction * (max - min), locale)}</text></g>)}
       {geometry.map(({ item, d, points }) => {
@@ -129,7 +159,8 @@ function ChannelChart(props: Props & { channel: Channel }) {
         return <g key={`${item.driver}:${item.lap}`} style={{ color: telemetryColor(item.driver) }}><path d={d} className="monitor-series-path" strokeDasharray={alternate ? "6 4" : undefined} />{points.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r="3" fill="currentColor" />)}</g>;
       })}
       {cursor !== null && cursor >= range.start && cursor <= range.end && <line data-testid="replay-cursor" data-time={cursor} x1={chartX(cursor)} x2={chartX(cursor)} y1="15" y2="158" className="chart-cursor" />}
-      <text x="52" y="180" className="chart-tick">{format(range.start, locale)} {axis === "distance" ? "m" : "s"}</text><text x={right} y="180" textAnchor="end" className="chart-tick">{format(range.end, locale)} {axis === "distance" ? "m" : "s"}</text>
+      {props.previewCursor !== null && <line data-testid="preview-cursor" x1={chartX(props.previewCursor)} x2={chartX(props.previewCursor)} y1="15" y2="158" className="chart-preview-cursor" />}
+      <text x="52" y="180" className="chart-tick">{axisLabel(range.start)}</text><text x={right} y="180" textAnchor="end" className="chart-tick">{axisLabel(range.end)}</text>
       {!bounds.count && <text x={svgWidth / 2} y="90" textAnchor="middle" className="chart-tick">{pt ? "Sem amostras neste intervalo" : "No samples in this interval"}</text>}
     </svg>
   </section>;
@@ -140,7 +171,7 @@ export function TelemetryTable(props: Props) {
   const pt = props.locale === "pt-BR";
   const selected = props.channels.find((item) => item.id === channel) ?? props.channels[0];
   return <details className="telemetry-table-wrap"><summary><h3>{pt ? "Tabela de amostras no instante" : "Samples at this instant"}</h3></summary>
-    <label className="compact-control">{pt ? "Canal da tabela" : "Table channel"}<select value={selected?.id ?? ""} onChange={(event) => setChannel(event.target.value)}>{props.channels.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+    <label className="compact-control">{pt ? "Canal da tabela" : "Table channel"}<select value={selected?.id ?? ""} onChange={(event) => setChannel(event.target.value)}>{props.channels.map((item) => <option key={item.id} value={item.id}>{channelLabel(item, props.locale)}</option>)}</select></label>
     <div><table><thead><tr><th>{props.entityLabel ?? (pt ? "Piloto" : "Driver")}</th><th>{pt ? "Volta" : "Lap"}</th><th>{props.axis === "distance" ? pt ? "Distância da amostra (m)" : "Sample distance (m)" : pt ? "Tempo da amostra (s)" : "Sample time (s)"}</th><th>{selected?.label} {selected?.unit}</th><th>{pt ? "Disponibilidade" : "Availability"}</th></tr></thead><tbody>{currentSamples(props).map((row) => <tr key={row.key}><th scope="row">{row.driver}</th><td>{row.sample?.lapNumber ?? row.lap ?? "—"}</td><td>{format(row.sample ? sampleTime(row.sample, props.axis) : null, props.locale)}</td><td>{format(selected ? row.sample?.values[selected.id] : null, props.locale)}</td><td>{props.series.filter((item) => item.driver === row.driver && ((props.axis === "globalTime" && !props.staticData) || item.lap === row.lap)).map((item) => availabilityLabel(item, pt)).filter((value, index, items) => items.indexOf(value) === index).join("; ")}</td></tr>)}</tbody></table></div>
     <p className="muted">{props.axis === "distance" ? pt ? "Última amostra original até a distância do cursor, sem atravessar registros ausentes ou lacunas temporais maiores que 2 s. Não há extrapolação." : "Last original sample at or before the cursor distance, without crossing missing records or temporal gaps longer than 2 s. No extrapolation." : pt ? "Última amostra original até o cursor, com no máximo 2 s de idade. Lacunas permanecem ausentes." : "Last original sample at or before the cursor, at most 2 s old. Gaps remain missing."}</p>
   </details>;

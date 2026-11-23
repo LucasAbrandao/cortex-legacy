@@ -16,6 +16,19 @@ function setup() {
 }
 
 describe("Race companion", () => {
+  it("expands settings without changing time, playback or selections", async () => {
+    setup();
+    await screen.findByRole("heading", { name: "Race Explorer · Spa 2025" });
+    fireEvent.change(screen.getByRole("slider", { name: "Posição do replay" }), { target: { value: "59" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expandir controles" }));
+    expect(screen.getByTestId("race-time")).toHaveAttribute("data-time", "59");
+    expect(screen.getByRole("button", { name: "Pausar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Avançar 1 segundo" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Recolher controles" }));
+    expect(screen.queryByRole("button", { name: "Avançar 1 segundo" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remover PIA" })).toBeInTheDocument();
+  });
   it("pauses when focus changes and preserves the global replay cursor", async () => {
     setup();
     await screen.findByRole("heading", { name: "Race Explorer · Spa 2025" });
@@ -32,7 +45,7 @@ describe("Race companion", () => {
   it("pauses at the selected lap's proven start without resetting to zero", async () => {
     setup();
     await screen.findByRole("heading", { name: "Race Explorer · Spa 2025" });
-    fireEvent.click(screen.getByText("Opções da volta"));
+    fireEvent.click(screen.getByRole("button", { name: "Expandir controles" }));
     fireEvent.click(screen.getByRole("button", { name: "Reproduzir" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Volta selecionada" }), { target: { value: "8" } });
     expect(screen.getByRole("button", { name: "Reproduzir" })).toBeInTheDocument();
@@ -42,7 +55,7 @@ describe("Race companion", () => {
   it("keeps monitored drivers, focus, and comparison selections independent", async () => {
     setup();
     await screen.findByRole("heading", { name: "Race Explorer · Spa 2025" });
-    fireEvent.click(screen.getByText("Opções da volta"));
+    fireEvent.click(screen.getByRole("button", { name: "Expandir controles" }));
     expect(screen.getByRole("checkbox", { name: "Pausar ao fim da volta escolhida" })).not.toBeChecked();
     const selection = screen.getByRole("region", { name: "Seleção de pilotos" });
     const originalTime = screen.getByTestId("race-time").getAttribute("data-time");
@@ -66,6 +79,7 @@ describe("Race companion", () => {
     await screen.findByRole("heading", { name: "Race Explorer · Spa 2025" });
     await waitFor(() => expect(document.querySelector(".live-readouts")?.textContent).toContain("200"));
     const before = fetchMock.mock.calls.filter(([url]) => url.endsWith("/series")).length;
+    fireEvent.click(screen.getByRole("button", { name: "Expandir controles" }));
     fireEvent.click(screen.getByRole("button", { name: "Avançar 1 segundo" }));
     await waitFor(() => expect(document.querySelector(".live-readouts")?.textContent).toContain("201"));
     expect(fetchMock.mock.calls.filter(([url]) => url.endsWith("/series"))).toHaveLength(before);
@@ -77,7 +91,7 @@ describe("Race companion", () => {
     fireEvent.keyDown(screen.getAllByRole("img", { name: /telemetria sincronizada/ })[0]!, { key: "ArrowLeft" });
     expect(screen.getByText("Inspeção pausada")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reproduzir" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Voltar ao acompanhamento" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retomar deste ponto" }));
     expect(screen.getByText("● Seguindo replay")).toBeInTheDocument();
   });
 
