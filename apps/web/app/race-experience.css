@@ -65,7 +65,7 @@
 .race-experience .companion-clock output { color: var(--race-text); }
 .race-experience .transport-navigation { border-color: #71819330; }
 .race-experience .transport-options > summary { display: flex; min-height: 28px; font-size: 11px; color: var(--race-muted); }
-.race-experience .transport-options:not([open]) > div { display: none; }
+.race-experience details.transport-options:not([open]) > div { display: none; }
 .race-experience .transport-options::details-content { content-visibility: hidden; }
 .race-experience .transport-options[open]::details-content { content-visibility: visible; }
 .race-experience .transport-navigation { padding-top: 0; }
@@ -193,4 +193,46 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .race-experience *, .race-experience *::before, .race-experience *::after { transition: none !important; animation: none !important; }
+}
+
+/* Replay and map controls occupy layout space, including after scrolling. */
+.inspection-cursor { display: grid; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+.inspection-cursor input { width: 100%; min-height: 44px; }
+.chart-preview-label { min-height: 18px; margin: 4px 0; font-size: 11px; color: var(--text-secondary); }
+.chart-preview-cursor { stroke: #ddb578; stroke-width: 1.5px; stroke-dasharray: 3 3; pointer-events: none; }
+.monitor-chart-svg { touch-action: pan-y; }
+.race-experience .monitor-chart[data-channel="speed"] .live-readouts strong { font-size: 20px; }
+.race-experience .replay-player,
+.race-experience [data-transport="compact"] .replay-player { padding: 10px 14px; }
+.replay-player .transport-mode-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.race-experience .replay-player .playback-mode { width: auto; display: flex !important; }
+.race-experience .replay-player .transport-main { display: flex; align-items: center; gap: 12px; }
+.race-experience .replay-player .replay-action { flex: 0 0 44px; width: 44px; height: 44px; }
+.race-experience .replay-player .companion-clock { min-width: 145px; flex: 0 0 auto; }
+.race-experience .replay-player .session-seek { flex: 1; min-width: 0; }
+.race-experience .replay-player .session-seek input { width: 100%; min-height: 44px; }
+.replay-player .replay-settings:not([hidden]) { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 12px; border-top: 1px solid #71819340; }
+.race-experience .replay-player .replay-settings[hidden] { display: none; }
+.race-experience .replay-player .transport-sync { display: flex !important; }
+.race-experience .replay-player .transport-options { display: block !important; flex-basis: 100%; }
+.replay-player .transport-options > div { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+.race-experience .replay-player .transport-speeds button { display: inline-block !important; min-height: 44px; }
+.race-experience .scene-spacer { display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; }
+.race-experience .scene-section-label { position: static; flex-wrap: wrap; gap: 8px; padding-bottom: 8px; }
+.track-controls-slot { pointer-events: auto; }
+.race-experience .track-controls-slot .track-monitor-header { position: static; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border: 1px solid #71819355; border-radius: 12px; background: #171d24ed; }
+.track-controls-slot .track-monitor-header h2 { width: 100%; font: 600 10px ui-monospace, monospace; letter-spacing: .1em; color: #b6c3cb; }
+.track-controls-slot .track-camera-slot, .track-controls-slot .scene-hud { display: contents; }
+.track-controls-slot .scene-camera-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.track-controls-slot button { min-height: 44px; }
+.track-controls-slot .scene-data-mode { padding: 8px 12px; border-radius: 8px; }
+.track-controls-slot .track-size-handle { position: static; width: 44px; height: 44px; background: #34414f; border: 1px solid #718193; border-radius: 8px; touch-action: none; cursor: nwse-resize; }
+@media (max-width: 767px) {
+  .race-experience .replay-player .transport-main { flex-wrap: wrap; gap: 8px; }
+  .race-experience .replay-player .session-seek { flex-basis: 100%; }
+  .race-experience .replay-player .companion-clock { flex: 1; }
+  .race-experience .replay-player .transport-mode-row .mode-button { padding-inline: 8px; font-size: 11px; min-height: 44px; }
+  .replay-player .transport-settings { padding-inline: 8px; font-size: 11px; }
+  .race-experience .replay-player .transport-speed-select { display: none; }
+  .race-experience .replay-player .transport-speeds { display: flex; }
 }

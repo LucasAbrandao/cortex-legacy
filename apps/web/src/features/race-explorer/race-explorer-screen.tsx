@@ -12,6 +12,7 @@ import { useLayoutMotion } from "../../shared/use-layout-motion";
 import { useRaceTracks } from "./use-race-tracks";
 import { TimingTower } from "./race-monitor-panels";
 import { indexTrackSamples, visualMarkersFromIndex } from "./race-track-markers";
+import { lapTimeFor, maxChannelValue, averageChannelValue, activeChannelSamples, gearChanges } from "./race-metrics";
 
 import { useRaceStage } from "./race-stage";
 import { useRaceScroll } from "./use-race-scroll";
@@ -45,7 +46,6 @@ export function RaceExplorerScreen({ sessionId }: { sessionId: string }) {
   const presentation = stage?.presentation ?? "expanded";
   const [transportExpanded, setTransportExpanded] = useState(false);
   const [search, setSearch] = useState("");
-  const [lapOptions, setLapOptions] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const toolbar = root.current?.querySelector(".race-transport");
@@ -104,10 +104,11 @@ export function RaceExplorerScreen({ sessionId }: { sessionId: string }) {
   const trackIndex = useMemo(() => indexTrackSamples(tracks), [tracks]);
   const focusTrack = useMemo(() => tracks.filter((segment) => segment.driver === referenceDriver && segment.lap === referenceLap), [tracks, referenceDriver, referenceLap]);
 
-  const requests = mode === "race" ? selectionsForWindow(manifest?.laps ?? [], analyzed, time, windowSeconds) : comparisons.filter((item) => item.lap !== null);
+  const seriesTime = !following && inspectionRange ? inspectionRange.end : time;
+  const requests = mode === "race" ? selectionsForWindow(manifest?.laps ?? [], analyzed, seriesTime, windowSeconds) : comparisons.filter((item) => item.lap !== null);
   const channels = useMemo(() => manifest?.channels.map((item) => item.id) ?? [], [manifest]);
   const data = useRaceSeries(api, sessionId, requests, channels);
-  const series = data.series.filter((item) => mode === "comparison" ? comparisons.some((selection) => selection.driver === item.driver && selection.lap === item.lap) : analyzed.includes(item.driver) && (lapWindow(manifest?.laps ?? [], item.driver, item.lap)?.start ?? Infinity) <= (time ?? -Infinity));
+  const series = data.series.filter((item) => mode === "comparison" ? comparisons.some((selection) => selection.driver === item.driver && selection.lap === item.lap) : analyzed.includes(item.driver) && (lapWindow(manifest?.laps ?? [], item.driver, item.lap)?.start ?? Infinity) <= (seriesTime ?? -Infinity));
   const range = following || !inspectionRange ? mode === "race" ? { start: (time ?? 0) - windowSeconds, end: time ?? 0 } : { start: 0, end: comparisonDuration ?? 1 } : inspectionRange;
   const durations = Object.fromEntries(comparisons.map((item) => [`${item.driver}:${item.lap}`, lapWindow(manifest?.laps ?? [], item.driver, item.lap)?.duration ?? null]));
 
@@ -125,11 +126,13 @@ export function RaceExplorerScreen({ sessionId }: { sessionId: string }) {
   };
   const selectFocus = (driver: string) => {
     if (!manifest) return;
+    clock.setPlaying(false);
     const lap = activeLapWindow(manifest.laps, driver, mode === "race" ? time : modeTimes.current.race)?.lap ?? firstLapFor(manifest, driver);
     setFocus({ driver, lap });
   };
   const selectLap = (lap: number) => {
     if (!manifest || !focus) return;
+    clock.setPlaying(false);
     const window = lapWindow(manifest.laps, focus.driver, lap);
     setFocus({ ...focus, lap });
     if (window && mode === "race") { seek(window.start); setFollowing(true); setInspectionRange(null); }
@@ -179,23 +182,24 @@ export function RaceExplorerScreen({ sessionId }: { sessionId: string }) {
 
   return <div ref={root} className={`race-companion presentation-${presentation}`} data-mode={mode}>
     <header className="companion-heading"><div><p className="eyebrow">BELGIUM · 2025 · RACE</p><h1>{t.explorerTitle}</h1></div><p>{pt ? "Replay para acompanhar sua transmissão. Sincronize o vídeo manualmente." : "Replay alongside your broadcast. Sync your video manually."}</p></header>
-    <section className={`race-transport ${transportExpanded ? "is-manually-expanded" : ""}`} aria-label={t.replayControls}>
-      <button type="button" className="transport-expand icon-button" aria-label={transportExpanded ? pt ? "Recolher controles" : "Collapse controls" : pt ? "Expandir controles" : "Expand controls"} aria-expanded={transportExpanded} onClick={() => setTransportExpanded(!transportExpanded)}>{transportExpanded ? "−" : "•••"}</button>
-      <div className="transport-main">
+    <section className="race-transport replay-player" aria-label={t.replayControls}>
+      <div className="transport-mode-row">
         <div className="playback-mode" aria-label={t.raceMode}><button type="button" className="mode-button" aria-pressed={mode === "race"} onClick={() => changeMode("race")}>{t.realRace}</button><button type="button" className="mode-button" aria-pressed={mode === "comparison"} onClick={() => changeMode("comparison")}>{t.lapComparison}</button></div>
+        <button type="button" className="button button-secondary button-small transport-settings" aria-label={transportExpanded ? pt ? "Recolher controles" : "Collapse controls" : pt ? "Expandir controles" : "Expand controls"} aria-expanded={transportExpanded} aria-controls="replay-settings" onClick={() => setTransportExpanded(!transportExpanded)}>{pt ? "Ajustes" : "Settings"} {transportExpanded ? "−" : "+"}</button>
+      </div>
+      <div className="transport-main">
         <button type="button" className="replay-action icon-button" aria-label={playing ? t.pause : t.play} disabled={!canPlay} onClick={togglePlayback}>{playing ? "Ⅱ" : "▶"}</button>
-        <div className="companion-clock"><strong>{mode === "race" ? `${focus.driver} · ${t.lap} ${currentLap ?? "—"}` : t.lapComparison}</strong><output data-testid="race-time" data-time={time}>{mode === "race" ? formatSessionTime(time, locale) : formatComparisonClock(time, locale)}</output><small>/ {mode === "race" ? formatSessionTime(bounds.end, locale) : formatComparisonClock(comparisonDuration ?? 0, locale)}</small></div>
+        <div className="companion-clock"><strong>{mode === "race" ? `${focus.driver} · ${t.lap} ${currentLap ?? "—"}` : t.lapComparison}</strong><output data-testid="race-time" data-time={time}>{mode === "race" ? formatSessionTime(time, locale) : formatComparisonClock(time, locale)}</output><small>/ {mode === "race" ? formatSessionTime(bounds.end, locale) : formatComparisonClock(comparisonDuration ?? 0, locale)}</small></div>        <label className="session-seek"><span>{mode === "race" ? t.sessionTime : t.relativeTime}</span><input aria-label={t.seek} type="range" min={mode === "race" ? bounds.start : 0} max={mode === "race" ? bounds.end : comparisonDuration ?? 1} step=".001" value={time} disabled={!canPlay} onChange={(event) => seek(Number(event.target.value))} /></label>
+      </div>
+      <div id="replay-settings" className="replay-settings" hidden={!transportExpanded}>
         <div className="transport-sync"><button type="button" className="button button-secondary button-small" aria-label={pt ? "Recuar 1 segundo" : "Back 1 second"} onClick={() => seek(time - 1, false)}>−1 s</button><button type="button" className="button button-secondary button-small" aria-label={pt ? "Avançar 1 segundo" : "Forward 1 second"} onClick={() => seek(time + 1, false)}>+1 s</button></div>
         <select className="transport-speed-select" aria-label={pt ? "Velocidade do replay" : "Replay speed"} value={clock.speed} onChange={(event) => clock.setSpeed(Number(event.target.value))}>{[.5, 1, 2, 5].map((speed) => <option key={speed} value={speed}>{new Intl.NumberFormat(locale).format(speed)}×</option>)}</select>
         <div className="transport-speeds" role="group" aria-label={pt ? "Velocidade" : "Speed"}>{[.5, 1, 2, 5].map((speed) => <button type="button" key={speed} aria-pressed={clock.speed === speed} onClick={() => clock.setSpeed(speed)}>{new Intl.NumberFormat(locale).format(speed)}×</button>)}</div>
-      </div>
-      <div className="transport-navigation">
-        <details className="transport-options" open={lapOptions} onToggle={(event) => setLapOptions(event.currentTarget.open)}><summary>{pt ? "Opções da volta" : "Lap options"}</summary><div>
+        <div className="transport-options"><strong>{pt ? "Opções da volta" : "Lap options"}</strong><div>
         {mode === "race" ? <><button className="button button-secondary button-small" type="button" onClick={() => { seek(bounds.start!); setFollowing(true); clock.setPlaying(true); }}>{pt ? "Iniciar corrida" : "Start race"}</button>
           <label className="compact-control lap-navigation">{pt ? `Ir para volta · ${focus.driver}` : `Go to lap · ${focus.driver}`}<select aria-label={t.selectedLap} value={focus.lap ?? ""} onChange={(event) => selectLap(Number(event.target.value))}>{lapsFor(manifest, focus.driver).map((lap) => <option key={lap} value={lap} disabled={!lapWindow(manifest.laps, focus.driver, lap)}>{lap}</option>)}</select></label>
           <label className="pause-at-end"><input type="checkbox" checked={pauseAtEnd} onChange={(event) => setPauseAtEnd(event.target.checked)} />{pt ? "Pausar ao fim da volta escolhida" : "Pause at selected lap end"}</label></> : <span className="timing-note">{pt ? "Cada piloto termina na duração da própria volta." : "Each driver stops at their own lap duration."}</span>}
-        </div></details>
-        <label className="session-seek"><span>{mode === "race" ? t.sessionTime : t.relativeTime}</span><input aria-label={t.seek} type="range" min={mode === "race" ? bounds.start : 0} max={mode === "race" ? bounds.end : comparisonDuration ?? 1} step=".001" value={time} disabled={!canPlay} onChange={(event) => seek(Number(event.target.value))} /></label>
+        </div></div>
       </div>
     </section>
 
@@ -209,15 +213,15 @@ export function RaceExplorerScreen({ sessionId }: { sessionId: string }) {
 
     <div className="companion-layout">
     <div className="companion-grid">
-      <div className="scene-spacer"><div className="scene-section-label"><span>SPA–FRANCORCHAMPS</span><span>{pt ? "ROLE PARA INVESTIGAR" : "SCROLL TO EXPLORE"} ↓</span></div>{trackData.error && <div className="track-data-notice" role="status"><span>{pt ? "Posições de um piloto indisponíveis." : "A driver's positions are unavailable."}</span><button type="button" className="button button-secondary button-small" onClick={trackData.retry}>{t.retry}</button></div>}</div>
+      <div className="scene-spacer"><div ref={stage?.setToolbarHost} className="track-controls-slot" /><div className="scene-section-label"><span>SPA–FRANCORCHAMPS</span><span>{pt ? "ROLE PARA INVESTIGAR" : "SCROLL TO EXPLORE"} ↓</span></div>{trackData.error && <div className="track-data-notice" role="status"><span>{pt ? "Posições de um piloto indisponíveis." : "A driver's positions are unavailable."}</span><button type="button" className="button button-secondary button-small" onClick={trackData.retry}>{t.retry}</button></div>}</div>
       <aside className="timing-rail"><TimingTower {...towerProps} adaptive animate={mode === "race" && playing && performance.now() > skipAnimation.current} /></aside>
     </div>
 
     <section className="companion-analysis" aria-label={t.analysisZone}>
-      <header className="analysis-heading"><div><p className="eyebrow">{mode === "race" ? pt ? "ACOMPANHAMENTO" : "FOLLOWING" : pt ? "INVESTIGAÇÃO" : "INSPECTION"}</p><h2>{t.charts}</h2></div><div className="analysis-controls">{mode === "race" && <label className="compact-control">{pt ? "Janela" : "Window"}<select value={windowSeconds} onChange={(event) => { setWindowSeconds(Number(event.target.value)); setInspectionRange(null); }}>{[30, 60, 120].map((seconds) => <option key={seconds} value={seconds}>{seconds} s</option>)}</select></label>}<span className={following ? "follow-state" : "inspect-state"}>{following ? pt ? "● Seguindo replay" : "● Following replay" : pt ? "Inspeção pausada" : "Paused inspection"}</span>{!following && <button className="button button-primary button-small" type="button" onClick={() => { setFollowing(true); setInspectionRange(null); }}>{pt ? "Voltar ao acompanhamento" : "Return to following"}</button>}</div></header>
+      <header className="analysis-heading"><div><p className="eyebrow">{mode === "race" ? pt ? "ACOMPANHAMENTO" : "FOLLOWING" : pt ? "INVESTIGAÇÃO" : "INSPECTION"}</p><h2>{t.charts}</h2></div><div className="analysis-controls">{mode === "race" && <label className="compact-control">{pt ? "Janela" : "Window"}<select value={windowSeconds} onChange={(event) => { setWindowSeconds(Number(event.target.value)); setFollowing(true); setInspectionRange(null); }}>{[30, 60, 120].map((seconds) => <option key={seconds} value={seconds}>{seconds} s</option>)}</select></label>}<span className={following ? "follow-state" : "inspect-state"}>{following ? pt ? "● Seguindo replay" : "● Following replay" : pt ? "Inspeção pausada" : "Paused inspection"}</span>{!following && <button className="button button-primary button-small" type="button" onClick={() => { setFollowing(true); setInspectionRange(null); clock.setPlaying(true); }}>{pt ? "Retomar deste ponto" : "Resume from here"}</button>}</div></header>
       {mode === "race" && <details className="analysis-driver-picker"><summary>{pt ? `Pilotos nos gráficos · ${analyzed.length}/4` : `Drivers in charts · ${analyzed.length}/4`}</summary><div>{manifest.drivers.map((driver) => <label key={driver.code}><input type="checkbox" checked={analyzed.includes(driver.code)} disabled={!analyzed.includes(driver.code) && analyzed.length >= 4} onChange={() => toggleAnalysis(driver.code)} /><i style={{ background: driverColor(driver.code) }} /><strong>{driver.code}</strong><span>{driver.name}</span></label>)}</div></details>}
       <div className="series-status" role="status">{data.error ? <><span>{pt ? "Falha ao carregar uma ou mais voltas." : "One or more laps failed to load."}</span><button className="button button-secondary button-small" type="button" onClick={data.retry}>{t.retry}</button></> : data.loading ? pt ? "Preparando telemetria das voltas…" : "Preparing lap telemetry…" : <span>{mode === "race" ? t.sessionTime : t.relativeTime} · {pt ? "Arraste no gráfico para inspecionar" : "Drag on the chart to inspect"}</span>}</div>
-      <TelemetryWorkspace series={series} channels={manifest.channels} axis={mode === "race" ? "globalTime" : "lapTime"} cursor={time} range={range} visible={visible} onVisible={setVisible} onInspect={inspect} locale={locale} following={following} durations={durations} />
+      <TelemetryWorkspace series={series} channels={manifest.channels} axis={mode === "race" ? "globalTime" : "lapTime"} cursor={time} range={range} visible={visible} onVisible={setVisible} onInspect={inspect} locale={locale} following={following} durations={durations} timeOrigin={mode === "race" ? range.end : undefined} inspectionControl />
       <details className="lap-inspector"><summary>{pt ? "Análise da volta e classificação por passagem" : "Lap analysis and crossing standings"}</summary><LapMetrics series={metricsSeries} manifest={manifest} labels={{ title: t.lapMetrics, lapTime: t.metricLapTime, topSpeed: t.metricTopSpeed, averageSpeed: t.metricAverageSpeed, throttle: t.metricThrottleSamples, brake: t.metricBrakeSamples, gearChanges: t.metricGearChanges, drs: t.metricDrsSamples, unavailable: t.metricUnavailable, delta: t.totalDelta }} locale={locale} /><TimingTower {...towerProps} lap={focus.lap} animate={false} /></details>
     </section>
     </div>
@@ -257,9 +261,7 @@ function Metric({ name, value, unavailable }: { name: string; value: string | nu
 function firstLapFor(manifest: Manifest, driver: string): number | null { return lapsFor(manifest, driver)[0] ?? null; }
 function lapOrFallback(manifest: Manifest, driver: string, preferred: number): number | null { return lapsFor(manifest, driver).includes(preferred) ? preferred : firstLapFor(manifest, driver); }
 function lapsFor(manifest: Manifest, driver: string): number[] { return manifest.laps.filter((lap) => lap.driver === driver && lap.number !== null).map((lap) => lap.number as number); }
-function lapTimeFor(manifest: Manifest, driver: string, lap: number | null): number | null { return manifest.laps.find((item) => item.driver === driver && item.number === lap)?.lapTime ?? null; }
 function frameAt(frames: ReplayFrame[], time: number | null): ReplayFrame | null { if (time === null || !frames.length) return null; let low = 0; let high = frames.length - 1; while (low <= high) { const middle = Math.floor((low + high) / 2); if ((frames[middle]?.time ?? Infinity) <= time) low = middle + 1; else high = middle - 1; } return frames[high] ?? null; }
-function chartValue(value: unknown): number | null { if (typeof value === "boolean") return value ? 1 : 0; return typeof value === "number" && Number.isFinite(value) ? value : null; }
 function formatComparisonClock(value: number, locale: string): string { return `${String(Math.floor(value / 60)).padStart(2, "0")}:${formatRelativeTime(value % 60, locale)}`; }
 function formatRelativeTime(value: number, locale: string): string { return new Intl.NumberFormat(locale, { minimumIntegerDigits: 2, minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(value); }
 function formatSessionTime(value: number, locale: string): string { const hours = Math.floor(value / 3600); const minutes = Math.floor(value % 3600 / 60); const seconds = Math.floor(value % 60); const two = new Intl.NumberFormat(locale, { minimumIntegerDigits: 2, useGrouping: false }); return `${two.format(hours)}:${two.format(minutes)}:${two.format(seconds)}`; }
@@ -267,11 +269,6 @@ function formatSeconds(value: number | null, locale: string): string | null { re
 function formatSpeed(value: number | null, locale: string): string | null { return value === null ? null : `${formatAxis(value, locale)} km/h`; }
 function formatCount(value: number | null, locale: string): string | null { return value === null ? null : new Intl.NumberFormat(locale).format(value); }
 function formatDelta(value: number | null, base: number | null, locale: string): string | null { return value === null || base === null ? null : `${value >= base ? "+" : ""}${formatRelativeTime(value - base, locale)} s`; }
-function channelValues(series: Series, channel: string): number[] { return series.samples.map((sample) => chartValue(sample.values[channel])).filter((value): value is number => value !== null); }
-function maxChannelValue(series: Series, channel: string): number | null { const values = channelValues(series, channel); return values.length ? Math.max(...values) : null; }
-function averageChannelValue(series: Series, channel: string): number | null { const values = channelValues(series, channel); return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null; }
-function activeChannelSamples(series: Series, channel: string): number | null { const values = channelValues(series, channel); return values.length ? values.filter((value) => value > 0).length : null; }
-function gearChanges(series: Series): number | null { const values = channelValues(series, "gear"); return values.length ? values.slice(1).filter((value, index) => value !== values[index]).length : null; }
 function markerPositions(segments: TrackSegment[], drivers: string[], time: number): Array<{ driver: string; x: number; y: number }> { return drivers.flatMap((driver) => { const marker = markerPositionFor(segments.filter((segment) => segment.driver === driver), time); return marker ? [{ driver, ...marker }] : []; }); }
 function comparisonMarkers(segments: TrackSegment[], comparisons: Comparison[], manifest: Manifest, time: number): Array<{ driver: string; x: number; y: number }> { return comparisons.flatMap((comparison) => { const window = lapWindow(manifest.laps, comparison.driver, comparison.lap); if (!window || time > window.duration) return []; const marker = markerPositionFor(segments.filter((segment) => segment.driver === comparison.driver && segment.lap === comparison.lap), window.start + time); return marker ? [{ driver: comparison.driver, ...marker }] : []; }); }
 function boundsFor(points: Array<{ x: number | null; y: number | null }>): { minX: number; maxX: number; minY: number; maxY: number; width: number; height: number } | null { const valid = points.filter((point): point is { x: number; y: number } => point.x !== null && point.y !== null); if (!valid.length) return null; const rawMinX = Math.min(...valid.map((point) => point.x)); const rawMaxX = Math.max(...valid.map((point) => point.x)); const rawMinY = Math.min(...valid.map((point) => point.y)); const rawMaxY = Math.max(...valid.map((point) => point.y)); const extent = Math.max(rawMaxX - rawMinX, rawMaxY - rawMinY) * 1.12 || 1; const centerX = (rawMinX + rawMaxX) / 2; const centerY = (rawMinY + rawMaxY) / 2; return { minX: centerX - extent / 2, maxX: centerX + extent / 2, minY: centerY - extent / 2, maxY: centerY + extent / 2, width: 1000, height: 1000 }; }

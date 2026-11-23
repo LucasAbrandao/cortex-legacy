@@ -178,6 +178,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/telemetry/rcz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Rcz */
+        post: operations["import_rcz_api_telemetry_rcz_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -188,6 +205,12 @@ export interface components {
             code: string;
             /** Message */
             message: string;
+        };
+        /** ApiErrorResponse */
+        ApiErrorResponse: {
+            error: components["schemas"]["ApiError"];
+            /** Requestid */
+            requestId: string;
         };
         /** CacheHealth */
         CacheHealth: {
@@ -315,11 +338,6 @@ export interface components {
             /** Round */
             round: number;
         };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
         /** HealthResponse */
         HealthResponse: {
             /** Cacheconfigured */
@@ -380,6 +398,47 @@ export interface components {
              * @enum {string}
              */
             status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+        };
+        /** RczLap */
+        RczLap: {
+            /** Finishtimestamp */
+            finishTimestamp?: number | null;
+            /** Isinvalid */
+            isInvalid?: boolean | null;
+            /** Number */
+            number: number;
+            /** Starttimestamp */
+            startTimestamp: number;
+        };
+        /** RczSample */
+        RczSample: {
+            /** Distance */
+            distance: number | null;
+            /** Lapnumber */
+            lapNumber: number | null;
+            /** Laptime */
+            lapTime: number | null;
+            /** Time */
+            time: number | null;
+            /** Timestamp */
+            timestamp: number;
+            /** Values */
+            values: {
+                [key: string]: number | boolean | null;
+            };
+        };
+        /** RczSession */
+        RczSession: {
+            /** Channels */
+            channels: components["schemas"]["ChannelDefinition"][];
+            /** End */
+            end: number;
+            /** Laps */
+            laps: components["schemas"]["RczLap"][];
+            /** Samples */
+            samples: components["schemas"]["RczSample"][];
+            /** Start */
+            start: number;
         };
         /** ReplayFrame */
         ReplayFrame: {
@@ -561,19 +620,6 @@ export interface components {
             /** Samples */
             samples: components["schemas"]["TelemetryTrackSample"][];
         };
-        /** ValidationError */
-        ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
     };
     responses: never;
     parameters: never;
@@ -665,13 +711,13 @@ export interface operations {
                     "application/json": components["schemas"]["LoadJob"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -696,13 +742,22 @@ export interface operations {
                     "application/json": components["schemas"]["SessionManifestResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -730,13 +785,22 @@ export interface operations {
                     "application/json": components["schemas"]["ReplayResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -765,13 +829,22 @@ export interface operations {
                     "application/json": components["schemas"]["SeriesResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -800,13 +873,22 @@ export interface operations {
                     "application/json": components["schemas"]["TrackResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -851,13 +933,22 @@ export interface operations {
                     "application/json": components["schemas"]["LoadJob"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -882,13 +973,46 @@ export interface operations {
                     "application/json": components["schemas"]["LoadJob"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    import_rcz_api_telemetry_rcz_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RczSession"];
                 };
             };
         };

@@ -15,7 +15,8 @@ export const useCortex = (): CortexContextValue => { const context = useContext(
 
 const navItems = [
   { href: "/", icon: "home", label: "home" }, { href: "/f1", icon: "race", label: "raceExplorer" },
-  { href: "/telemetry", icon: "telemetry", label: "telemetry" }, { href: "/telemetry/import", icon: "import", label: "importTelemetry" }
+  { href: "/telemetry", icon: "telemetry", label: "telemetry" }, { href: "/telemetry/import", icon: "import", label: "importTelemetry" },
+  { href: "/telemetry/overlays", icon: "telemetry", label: "overlayStudio" }
 ] as const satisfies readonly { href: string; icon: IconName; label: keyof Copy }[];
 const clampWidth = (value: number): number => Math.min(320, Math.max(216, value));
 const isActiveRoute = (pathname: string, href: string): boolean => href === "/" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
@@ -25,6 +26,7 @@ function routeContext(pathname: string, t: Copy) {
   if (pathname.startsWith("/f1/2025")) return { title: "Spa 2025", crumb: `${t.raceExplorer} / Belgium`, project: t.raceExplorer };
   if (pathname === "/f1") return { title: t.raceExplorer, crumb: "Cortex", project: t.raceExplorer };
   if (pathname === "/telemetry/import") return { title: t.importTelemetry, crumb: `${t.telemetry} / ${t.workspace}`, project: t.telemetry };
+  if (pathname === "/telemetry/overlays") return { title: t.overlayStudio, crumb: t.telemetry, project: t.telemetry };
   if (pathname === "/telemetry/session") return { title: t.workspace, crumb: t.telemetry, project: t.telemetry };
   return { title: t.telemetry, crumb: "Cortex", project: t.telemetry };
 }
@@ -48,7 +50,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...navItems.map((item) => ({ id: item.href, group: t.commandNavigation, label: t[item.label], detail: item.href === "/" ? "Cortex" : t.workspace, icon: item.icon, onSelect: () => router.push(item.href) })),
     { id: "project-race", group: t.commandProjects, label: t.raceExplorer, detail: t.projectRaceDescription, icon: "race", onSelect: () => router.push("/f1") },
     { id: "project-telemetry", group: t.commandProjects, label: t.telemetry, detail: t.projectTelemetryDescription, icon: "telemetry", onSelect: () => router.push("/telemetry") },
-    { id: "settings", group: t.commandSettings, label: t.language, detail: `${t.portuguese} / ${t.english}`, icon: "settings", onSelect: () => setPinned((value) => !value) }
+    { id: "language-pt", group: t.commandSettings, label: t.portuguese, detail: t.language, icon: "settings", onSelect: () => setLocale("pt-BR") },
+    { id: "language-en", group: t.commandSettings, label: t.english, detail: t.language, icon: "settings", onSelect: () => setLocale("en") }
   ], [router, t]);
   const contextValue = useMemo(() => ({ locale, setLocale, t }), [locale, t]);
 
@@ -66,7 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {drawerOpen ? <div className="drawer-backdrop" aria-hidden="true" onClick={() => setDrawerOpen(false)} /> : null}
       <main id="main-content" className="main-content"><header className="top-bar"><div className="top-bar-context"><span>{context.crumb}</span><strong>{context.title}</strong></div><div className="top-bar-actions"><button type="button" className="top-search" onClick={() => setPaletteOpen(true)} aria-label={t.openCommandPalette}><Icon name="search" /><span>{t.openCommandPalette}</span><kbd>Ctrl K</kbd></button><StatusBadge tone="ready">{t.systemStatus}</StatusBadge></div></header><div className="content-wrap">{children}</div></main>
     </div>
-    <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} items={paletteItems} placeholder={t.commandPlaceholder} emptyLabel={t.commandEmpty} title={t.commandPalette} />
+    <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} items={paletteItems} placeholder={t.commandPlaceholder} emptyLabel={t.commandEmpty} title={t.commandPalette} footerLabels={{ navigate: t.commandNavigate, open: t.commandOpen, close: t.commandClose }} />
     <p className="sr-only" aria-live="polite">{announcement}</p>
   </CortexContext.Provider>;
 }

@@ -1,5 +1,39 @@
 # Decisões técnicas
 
+## D-021 — Estúdio de overlays RCZ
+
+Em 23/11/2026, o Telemetry Lab ganhou a rota `/telemetry/overlays`. O adaptador
+FastAPI interpreta em memória uma sessão RaceChrono v1 com um relógio GPS
+reconhecido. O frontend recebe amostras canônicas, mantém a sessão aberta
+na página e usa Canvas 2D para a prévia e para cada quadro exportado.
+O usuário autorizou o Mediabunny para codificação WebM com alfa. A importação
+de CSV/JSON continua local conforme D-020.
+
+A linha de referência usa por padrão a volta válida mais rápida com cobertura
+GPS contínua. A geometria é projetada em plano local e mantém a proporção dos
+eixos. A suavização desloca cada vértice interno em até um pixel na escala
+de saída. O marcador acompanha as posições medidas. O intervalo entre amostras
+interrompe o desenho quando excede 1,8 vezes a mediana de cadência ou dois
+segundos. Uma volta parcial pode ser reproduzida e não entra no melhor tempo.
+
+## D-020 — importação real local de CSV/JSON
+
+**Aprovada em 2026-10-20.** O Telemetry Lab passa a analisar os valores do arquivo,
+substituindo a demonstração com fixture de D-007. Um worker nativo lê, valida e
+normaliza CSV/JSON em memória; nenhum conteúdo é enviado, persistido ou registrado.
+O layout do módulo mantém o estado entre inspeção e análise e o descarta ao sair,
+reiniciar ou recarregar. `ImportedTelemetrySession` guarda metadados locais e usa
+os tipos canônicos gerados de canais, amostras e séries; o manifesto FastF1 e os
+endpoints públicos permanecem específicos da corrida.
+
+Limites: 5 MiB, 50.000 registros, 64 colunas e 500.000 células, sem truncamento
+silencioso; preview de 20 linhas. Mapeamento e unidades temporais são confirmados.
+Valores ausentes permanecem `null`; ordem e valores originais são preservados.
+Tempos duplicados/regressivos bloqueiam a análise com indicação do registro lógico. Distância
+exige coluna explícita calibrada em m/km e validade em todas as séries comparadas;
+lacunas continuam medidas em segundos. Não se cria pista, piloto ou volta ausente.
+RCZ, novos GPs, autenticação e deploy permanecem fora desta entrega.
+
 ## Precedência vigente
 
 Decisões posteriores substituem apenas os trechos conflitantes das anteriores.
